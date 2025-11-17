@@ -1,0 +1,55 @@
+name: Run Gemini batch
+
+on:
+  workflow_dispatch:
+    inputs:
+      wb:
+        description: 'Excel path (relative to repo)'
+        required: true
+        default: 'data/batch1.xlsx'
+      sheet:
+        description: 'Sheet name'
+        required: true
+        default: 'Sheet1'
+      start_row:
+        description: 'Row to start from'
+        required: true
+        default: '2'
+      limit:
+        description: 'Max rows to process (0 = no limit)'
+        required: true
+        default: '0'
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run classifier
+        run: |
+          python classify_gemini_headless.py \
+            --wb "${{ github.event.inputs.wb }}" \
+            --sheet "${{ github.event.inputs.sheet }}" \
+            --start_row ${{ github.event.inputs.start_row }} \
+            --limit ${{ github.event.inputs.limit }}
+
+      - name: Upload processed Excel
+        uses: actions/upload-artifact@v4
+        with:
+          name: processed-excel
+          path: ${{ github.event.inputs.wb }}
