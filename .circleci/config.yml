@@ -24,10 +24,10 @@ jobs:
 
 workflows:
   version: 2
-  run-gemini-on-push:
+  run-gemini-on-demand:
     jobs:
+      - approve-run:
+          type: approval
       - run-gemini:
-          filters:
-            branches:
-              only:
-                - main
+          requires:
+            - approve-run
