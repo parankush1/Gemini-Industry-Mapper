@@ -452,9 +452,11 @@ def process_excel(args):
         # 🔹 Autosave every AUTOSAVE_EVERY rows
         if rows_processed % AUTOSAVE_EVERY == 0:
             try:
-    wb.save(args.wb)
-    print("Excel updated and saved.")
-    print(f"Rows processed: {rows_processed}")
+                wb.save(args.wb)
+                print("Excel updated and saved.")
+                print(f"Rows processed: {rows_processed}")
+            except Exception as e:
+                print(f"[FINAL SAVE ERROR] Could not save workbook: {e}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
