@@ -452,36 +452,9 @@ def process_excel(args):
         # 🔹 Autosave every AUTOSAVE_EVERY rows
         if rows_processed % AUTOSAVE_EVERY == 0:
             try:
-                wb.save(args.wb)
-                print(f"[AUTOSAVE] Workbook saved after row {current_row} (total rows processed: {rows_processed})")
-            except Exception as e:
-                print(f"[AUTOSAVE ERROR] Could not save workbook at row {current_row}: {e}")
-
-        current_row += 1
-        time.sleep(0.05)
-
     wb.save(args.wb)
     print("Excel updated and saved.")
-
-    # Cost summary
-    print("\n========== GEMINI COST SUMMARY (PAID RATES) ==========")
     print(f"Rows processed: {rows_processed}")
-    print(f"Total prompt tokens: {total_prompt_tokens}")
-    print(f"Total output tokens (incl. thinking): {total_output_tokens}")
-
-    actual_cost = (
-        total_prompt_tokens * INPUT_RATE +
-        total_output_tokens * OUTPUT_RATE
-    )
-    print(f"Estimated ACTUAL cost for this run ≈ ${actual_cost:.4f}")
-
-    if rows_processed > 0:
-        per_row_cost = actual_cost / rows_processed
-        print(f"Estimated cost per row ≈ ${per_row_cost:.6f}")
-        projected_120k = per_row_cost * 120000
-        print(f"Projected cost for 120,000 rows ≈ ${projected_120k:.2f}")
-    print("=======================================================")
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
