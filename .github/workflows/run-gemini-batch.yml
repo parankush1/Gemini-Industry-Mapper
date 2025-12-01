@@ -43,8 +43,15 @@ jobs:
       - name: Run classifier
         run: python classify_gemini_headless.py --wb "${{ github.event.inputs.wb }}" --sheet "${{ github.event.inputs.sheet }}" --start_row ${{ github.event.inputs.start_row }} --limit ${{ github.event.inputs.limit }}
 
+      - name: Copy processed Excel to Output folder
+        run: |
+          # Ensure Output folder exists
+          New-Item -ItemType Directory -Force -Path Output | Out-Null
+          # Copy the processed workbook into Output with a fixed name
+          Copy-Item "${{ github.event.inputs.wb }}" "Output/AHFL Cases.xlsx" -Force
+
       - name: Upload processed Excel
         uses: actions/upload-artifact@v4
         with:
           name: processed-excel
-          path: ${{ github.event.inputs.wb }}
+          path: Output/AHFL Cases.xlsx
