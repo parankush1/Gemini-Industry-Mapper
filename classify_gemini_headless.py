@@ -305,7 +305,6 @@ Wood / Furniture / Home Décor > Trader/Retailer > Curtains / Carpets / mattress
 Wood / Furniture / Home Décor > Manufacturer > Furniture / Timber / Wood Products,
 Wood / Furniture / Home Décor > Trader/Retailer > Furniture / Timber / Wood Products, """  # copy-paste exactly
 
-
 def process_excel(args):
     # GEMINI_API_KEY is read from env
     client = genai.Client()
@@ -334,37 +333,32 @@ def process_excel(args):
     ensure_header(out_summary_col, "Applicant Summary")
 
     start_row = args.start_row
-    # 0 or None for end_row means "no upper limit"
-    end_row = args.end_row if getattr(args, "end_row", None) not in (None, 0) else None
-    # 0 or None for limit means "no limit"
-    limit = args.limit if args.limit and args.limit > 0 else None
+    limit = args.limit
 
     total_prompt_tokens = 0
     total_output_tokens = 0
     rows_processed = 0
 
     print(
-        f"Starting processing from row {start_row} "
-        f"to {end_row if end_row is not None else 'EOF'} "
+        f"Starting processing from row {start_row} to 10000 "
         f"with limit={limit or 'no limit'}"
     )
 
     current_row = start_row
     while True:
-        if limit is not None and rows_processed >= limit:
-            break
-        if end_row is not None and current_row > end_row:
+        # Stop on limit, if set
+        if limit and rows_processed >= limit:
             break
 
         name = sheet[f"{name_col}{current_row}"].value
         comment = sheet[f"{comment_col}{current_row}"].value
 
-        # stop when both empty
+        # Stop when both empty
         if (name is None or str(name).strip() == "") and \
            (comment is None or str(comment).strip() == ""):
             break
 
-        # skip rows with no comment
+        # Skip rows with no comment
         if comment is None or str(comment).strip() == "":
             current_row += 1
             continue
@@ -382,7 +376,7 @@ def process_excel(args):
 
         try:
             response = client.models.generate_content(
-                model="gemini-2.0-flash",  # same as your local script
+                model="gemini-2.5-flash",
                 contents=user_prompt,
                 config=types.GenerateContentConfig(
                     system_instruction=SYSTEM_PROMPT,
@@ -399,7 +393,7 @@ def process_excel(args):
             current_row += 1
             continue
 
-        # Extract JSON text
+        # Extract JSON text from response
         content = ""
         try:
             if hasattr(response, "text") and response.text:
@@ -453,10 +447,26 @@ def process_excel(args):
         if rows_processed % AUTOSAVE_EVERY == 0:
             try:
                 wb.save(args.wb)
-                print("Excel updated and saved.")
-                print(f"Rows processed: {rows_processed}")
+                print(
+                    f"[AUTOSAVE] Workbook saved after row {current_row} "
+                    f"(total rows processed: {rows_processed})"
+                )
             except Exception as e:
-                print(f"[FINAL SAVE ERROR] Could not save workbook: {e}")
+                print(
+                    f"[AUTOSAVE ERROR] Could not save workbook at row {current_row}: {e}"
+                )
+
+        current_row += 1
+        time.sleep(0.05)
+
+    # Final save
+    try:
+        wb.save(args.wb)
+        print("Excel updated and saved.")
+        print(f"Rows processed: {rows_processed}")
+    except Exception as e:
+        print(f"[FINAL SAVE ERROR] Could not save workbook: {e}")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
