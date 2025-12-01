@@ -11,6 +11,7 @@ from google.genai import types
 
 INPUT_RATE = 0.30 / 1_000_000   # $ per input token
 OUTPUT_RATE = 2.5 / 1_000_000   # $ per output token
+AUTOSAVE_EVERY = 100  # save workbook every 100 processed rows
 
 SYSTEM_PROMPT = """You are an expert occupation and business classifier. You will receive in a single request: 1) APPLICANT_NAME -> Name of the applicant currently being processed. 2) CAM_COMMENT -> Full CAM narrative for the loan file (may contain multiple persons). Your job is to: STEP 1: Understand the CAM_COMMENT completely. - Identify all persons mentioned. - For each person, infer their occupation/business activity from the text. STEP 2: Focus ONLY on APPLICANT_NAME. - Match APPLICANT_NAME against the persons you identified. - Matching is case-insensitive and can be partial: * "Boopathi Raja" can match text referring to "Boopathi", "Raja", or "Boopathi Raja". * If multiple people have similar names, prefer the one that best matches the full APPLICANT_NAME string. - If you cannot find any clear match, pick the person whose occupation is most likely to correspond to that APPLICANT_NAME given the context. STEP 3: Classify that applicant into EXACTLY ONE label from the catalog below: - Industry - Business Category - Business Profile, all the catogory are seperated using ",". STEP 4: Return a SHORT structured summary (1–2 sentences) describing ONLY that applicant's occupation/business. OUTPUT FORMAT (STRICT JSON): { "industry": "...", "business_category": "...", "business_profile": "...", "summary": "Short structured summary about APPLICANT_NAME only." } Rules: - Choose ONLY from the catalog (exact text) for the three classification fields and map the closest one. - Be as specific as possible. - If no reasonable match exists, use: { "industry": "Unknown", "business_category": "Unknown", "business_profile": "Unknown", "summary": "No clear occupation or business information available for this applicant." } 
 CATALOG (Industry>Business Category>Business Profile): Accounting & Auditing > Service Provider >Accounting/ Auditing Services,
@@ -381,7 +382,7 @@ def process_excel(args):
 
         try:
             response = client.models.generate_content(
-                model="gemini-2.5-flash",  # same as your local script
+                model="gemini-2.0-flash",  # same as your local script
                 contents=user_prompt,
                 config=types.GenerateContentConfig(
                     system_instruction=SYSTEM_PROMPT,
@@ -447,6 +448,15 @@ def process_excel(args):
             )
 
         rows_processed += 1
+
+        # 🔹 Autosave every AUTOSAVE_EVERY rows
+        if rows_processed % AUTOSAVE_EVERY == 0:
+            try:
+                wb.save(args.wb)
+                print(f"[AUTOSAVE] Workbook saved after row {current_row} (total rows processed: {rows_processed})")
+            except Exception as e:
+                print(f"[AUTOSAVE ERROR] Could not save workbook at row {current_row}: {e}")
+
         current_row += 1
         time.sleep(0.05)
 
