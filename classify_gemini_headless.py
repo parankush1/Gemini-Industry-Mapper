@@ -437,12 +437,12 @@ def process_excel(args):
             total_prompt_tokens += pt
             total_output_tokens += ot
             print(
-                f"Row {current_row} done → prompt_tokens={pt}, output_tokens={ot}, "
+                f"Row {current_row} done -> prompt_tokens={pt}, output_tokens={ot}, "
                 f"industry='{industry}', category='{category}'"
             )
         else:
             print(
-                f"Row {current_row} done (no usage_metadata) → "
+                f"Row {current_row} done (no usage_metadata) -> "
                 f"industry='{industry}', category='{category}'"
             )
 
