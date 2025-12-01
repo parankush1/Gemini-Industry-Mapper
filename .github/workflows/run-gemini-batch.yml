@@ -6,7 +6,7 @@ on:
       wb:
         description: 'Excel path (relative to repo)'
         required: true
-        default: 'data/batch1.xlsx'
+        default: 'Data/AHFL Cases.xlsx'
       sheet:
         description: 'Sheet name'
         required: true
@@ -41,12 +41,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run classifier
-        run: |
-          python classify_gemini_headless.py \
-            --wb "${{ github.event.inputs.wb }}" \
-            --sheet "${{ github.event.inputs.sheet }}" \
-            --start_row ${{ github.event.inputs.start_row }} \
-            --limit ${{ github.event.inputs.limit }}
+        run: python classify_gemini_headless.py --wb "${{ github.event.inputs.wb }}" --sheet "${{ github.event.inputs.sheet }}" --start_row ${{ github.event.inputs.start_row }} --limit ${{ github.event.inputs.limit }}
 
       - name: Upload processed Excel
         uses: actions/upload-artifact@v4
