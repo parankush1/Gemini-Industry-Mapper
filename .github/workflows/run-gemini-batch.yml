@@ -6,7 +6,7 @@ on:
       wb:
         description: 'Excel path (relative to repo)'
         required: true
-        default: 'Data/AHFL Cases.xlsx'
+        default: 'Data/AHFL Cases1.xlsx'
       sheet:
         description: 'Sheet name'
         required: true
