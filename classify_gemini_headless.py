@@ -14,6 +14,7 @@ OUTPUT_RATE = 2.5 / 1_000_000   # $ per output token
 AUTOSAVE_EVERY = 100  # save workbook every 100 processed rows
 
 SYSTEM_PROMPT = """You are an expert occupation and business classifier. You will receive in a single request: 1) APPLICANT_NAME and 2) CAM_COMMENT -> Full CAM narrative for the loan file (may contain multiple persons). First, read and understand the CAM_COMMENT completely, identify all persons mentioned, and for each person infer their occupation or business activity and the company or business they work in, work for, run, or operate, along with that company’s business activity. Then focus ONLY on APPLICANT_NAME: match APPLICANT_NAME against the persons you identified using case-insensitive and partial matching (e.g. "Boopathi Raja" can match "Boopathi", "Raja", or "Boopathi Raja"); if multiple people have similar names, prefer the one that best matches the full APPLICANT_NAME string; if you cannot find any clear match, pick the person whose occupation or business is most likely to correspond to that APPLICANT_NAME given the context. Now classify that applicant into EXACTLY ONE label for each of the following, chosen ONLY from the provided catalog (exact text): "industry", "business_category", and "business_profile". VERY IMPORTANT: Industry / Business Category / Business Profile must always be assigned from the POV of the company the applicant is associated with, not their individual job title; that is, these three fields must describe the business of the company they are running, working in, working for, or operating — for example, if the person is an employee in a company producing films, the correct classification should reflect a film/TV/advertising/marketing type company (e.g. Advertising / Marketing / Film/TV Industry at the industry level, and the appropriate film/TV production business category/profile), even if their personal role is just cameraman or editor. All category values in the catalog are separated by commas; select the closest and most specific possible match. If no reasonable match exists in the catalog, you MUST use: { "industry": "Unknown", "business_category": "Unknown", "business_profile": "Unknown", "summary": "No clear occupation or business information available for this applicant." }. Otherwise, return a SHORT structured summary (1–2 sentences) describing ONLY APPLICANT_NAME’s occupation/business in terms of the company’s business activity. OUTPUT FORMAT : { "industry": "...", "business_category": "...", "business_profile": "...", "summary": "Short structured summary about APPLICANT_NAME only, based on the company’s line of business." } 
+You MUST respond ONLY with a single valid JSON object exactly in this OUTPUT FORMAT, with double quotes and no additional commentary, markdown, or code fences.
 CATALOG (Industry>Business Category>Business Profile): Accounting & Auditing > Service Provider >Accounting/ Auditing Services,
 Accounting & Auditing >Service Provider >Tax Services,
 Advertising / Marketing / Film / TV Industry > Service Provider > Advertising / Marketing Agency,
@@ -316,10 +317,8 @@ def process_excel(args):
     name_col = args.name_col.upper()
     comment_col = args.comment_col.upper()
 
-    out_industry_col = "D"
-    out_category_col = "E"
-    out_profile_col = "F"
-    out_summary_col = "G"
+    out_path_col = "D"      # combined: industry > business_category > business_profile
+    out_summary_col = "E"   # applicant summary
 
     # Headers
     def ensure_header(col, text):
@@ -327,9 +326,7 @@ def process_excel(args):
         if not (sheet[cell].value or "").strip():
             sheet[cell].value = text
 
-    ensure_header(out_industry_col, "Industry")
-    ensure_header(out_category_col, "Business Category")
-    ensure_header(out_profile_col, "Business Profile")
+    ensure_header(out_path_col, "Industry > Business Category > Business Profile")
     ensure_header(out_summary_col, "Applicant Summary")
 
     start_row = args.start_row
@@ -386,13 +383,25 @@ def process_excel(args):
             )
         except Exception as e:
             print(f"Error at row {current_row}: {e}")
-            sheet[f"{out_industry_col}{current_row}"].value = "Error"
-            sheet[f"{out_category_col}{current_row}"].value = "Error"
-            sheet[f"{out_profile_col}{current_row}"].value = "Error"
+            # write error info into the combined path + summary columns
+            sheet[f"{out_path_col}{current_row}"].value = "Error"
             sheet[f"{out_summary_col}{current_row}"].value = str(e)
+
+            rows_processed += 1  # so errors count toward limit/autosave
+            if rows_processed % AUTOSAVE_EVERY == 0:
+                try:
+                    wb.save(args.wb)
+                    print(
+                        f"[AUTOSAVE] Workbook saved after row {current_row} "
+                        f"(total rows processed: {rows_processed})"
+                    )
+                except Exception as se:
+                    print(
+                        f"[AUTOSAVE ERROR] Could not save workbook at row {current_row}: {se}"
+                    )
+
             current_row += 1
             continue
-
         # Extract JSON text from response
         content = ""
         try:
@@ -419,9 +428,10 @@ def process_excel(args):
             profile = "Unknown"
             summary = "Parsing error: could not read model output."
 
-        sheet[f"{out_industry_col}{current_row}"].value = industry
-        sheet[f"{out_category_col}{current_row}"].value = category
-        sheet[f"{out_profile_col}{current_row}"].value = profile
+        # Combine as: industry > business_category > business_profile
+        combined_path = f"{industry} > {category} > {profile}"
+
+        sheet[f"{out_path_col}{current_row}"].value = combined_path
         sheet[f"{out_summary_col}{current_row}"].value = summary
 
         usage = getattr(response, "usage_metadata", None)
